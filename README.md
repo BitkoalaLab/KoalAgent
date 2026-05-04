@@ -24,7 +24,7 @@
 
 **1. 克隆与安装依赖**
 ```bash
-git clone https://github.com/your-username/KoalAgent.git
+git clone https://github.com/BitkoalaLab/KoalAgent.git
 cd KoalAgent
 pip install -r requirements.txt
 ```
@@ -54,8 +54,10 @@ python memory_sandbox.py
 ### 🗺️ 演进路线图 (Roadmap)
 - [x] Phase 0: 长期记忆提取与检索
 - [x] Phase 0.5: 引入 Tool Calling 与飞书通讯
-- [ ] **Phase 1: Code Interpreter (代码解释器)** - 赋予 Agent 在沙盒中自己写 Python 爬虫并执行的终极自由度。
-- [ ] **Phase 2: Computer Use (系统控制)** - 引入 Playwright 实现网页自动化控制。
+- [x] **Phase 1: 工业级底座重构** - 引入 SQLite 状态持久化、短记忆滑动窗口、多线程并发与动态静默心跳机制。
+- [ ] **Phase 2: Code Interpreter (代码解释器)** - 赋予 Agent 在沙盒中自己写 Python 脚本并执行的终极自由度。
+- [ ] **Phase 3: ReAct & Planner (超级大脑)** - 引入复杂任务的多步规划、并行子任务与失败重试机制。
+- [ ] **Phase 4: Computer Use (系统控制)** - 引入 Playwright 实现网页自动化与多模态视觉能力。
 
 ---
 
@@ -75,7 +77,7 @@ Unlike traditional "request-response" chatbots, KoalAgent is designed to be a "l
 
 **1. Clone & Install**
 ```bash
-git clone https://github.com/your-username/KoalAgent.git
+git clone https://github.com/BitkoalaLab/KoalAgent.git
 cd KoalAgent
 pip install -r requirements.txt
 ```
@@ -105,8 +107,10 @@ python memory_sandbox.py
 ### 🗺️ Roadmap
 - [x] Phase 0: Persistent Memory Extraction & Retrieval
 - [x] Phase 0.5: Tool Calling & Feishu Integration
-- [ ] **Phase 1: Code Interpreter** - Granting the Agent the ultimate freedom to write and execute its own Python scripts in a sandbox.
-- [ ] **Phase 2: Computer Use** - Introducing Playwright for web automation and GUI control.
+- [x] **Phase 1: Industrial Infrastructure** - SQLite state persistence, sliding window context, multi-threading, and dynamic silent heartbeat logic.
+- [ ] **Phase 2: Code Interpreter** - Granting the agent the ultimate freedom to write and execute its own Python scripts.
+- [ ] **Phase 3: ReAct & Planner** - Implementing multi-step planning, parallel sub-tasks, and auto-recovery.
+- [ ] **Phase 4: Computer Use** - Playwright integration for web automation and multi-modal vision.
 
 ---
 *Created with ❤️ by BitKoala Lab.*

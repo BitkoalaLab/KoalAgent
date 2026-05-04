@@ -1,8 +1,9 @@
 import os
 import json
 import logging
+import sqlite3
 from datetime import datetime
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -71,10 +72,25 @@ class KoalAgent:
             .log_level(lark.LogLevel.WARNING) \
             .build()
             
-        # 用于记录谁和机器人聊过天（心跳会给他们发消息）
-        self.active_users = set()
+        # 2. 初始化 SQLite 数据库进行状态持久化
+        self.db_conn = sqlite3.connect("koalagent.db", check_same_thread=False)
+        self.db_cursor = self.db_conn.cursor()
+        self.db_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS active_users (
+                open_id TEXT PRIMARY KEY,
+                last_chat_time DATETIME,
+                last_heartbeat_time DATETIME
+            )
+        ''')
+        self.db_conn.commit()
         
-        # 调度器，这里用 BackgroundScheduler，以免阻塞主线程的 WebSocket
+        # 短期对话缓存 (open_id -> [{"role": "user", "content": "..."}, ...])
+        self.chat_history = {}
+        
+        # 线程池用于并发执行心跳任务
+        self.executor = ThreadPoolExecutor(max_workers=5)
+        
+        # 调度器，以免阻塞主线程的 WebSocket
         self.scheduler = BackgroundScheduler()
 
         # 注册工具
@@ -101,6 +117,24 @@ class KoalAgent:
             }
         ]
 
+    # --- 状态持久化函数 ---
+    def update_user_activity(self, open_id, is_chat=True):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.db_cursor.execute("SELECT * FROM active_users WHERE open_id = ?", (open_id,))
+        if not self.db_cursor.fetchone():
+            self.db_cursor.execute("INSERT INTO active_users (open_id, last_chat_time, last_heartbeat_time) VALUES (?, ?, ?)", 
+                                   (open_id, now if is_chat else None, now if not is_chat else None))
+        else:
+            if is_chat:
+                self.db_cursor.execute("UPDATE active_users SET last_chat_time = ? WHERE open_id = ?", (now, open_id))
+            else:
+                self.db_cursor.execute("UPDATE active_users SET last_heartbeat_time = ? WHERE open_id = ?", (now, open_id))
+        self.db_conn.commit()
+
+    def get_all_active_users(self):
+        self.db_cursor.execute("SELECT open_id, last_chat_time, last_heartbeat_time FROM active_users")
+        return self.db_cursor.fetchall()
+
     # --- 工具函数 ---
     def get_latest_tech_news(self):
         try:
@@ -122,14 +156,13 @@ class KoalAgent:
             return f"天气获取失败: {e}"
     # ----------------
 
-    def fetch_user_memories(self, user_id):
+    def fetch_user_memories(self, user_id, query="我的核心画像与偏好"):
         try:
-            if hasattr(self.m, 'get_all'):
-                all_memories = self.m.get_all(user_id=user_id)
-            else:
-                all_memories = self.m.search("我的全部信息", filters={"user_id": user_id})
-                
-            mem_list = all_memories.results if hasattr(all_memories, 'results') else (all_memories['results'] if isinstance(all_memories, dict) and 'results' in all_memories else (all_memories if isinstance(all_memories, list) else [all_memories]))
+            # Phase 1: 改用 search，限制 top 5，解决 token 膨胀问题
+            results = self.m.search(query, user_id=user_id, limit=5)
+            
+            # 兼容不同 mem0 版本的返回结果格式
+            mem_list = results.results if hasattr(results, 'results') else (results['results'] if isinstance(results, dict) and 'results' in results else (results if isinstance(results, list) else [results]))
             
             mem_strings = []
             for mem in mem_list:
@@ -137,8 +170,8 @@ class KoalAgent:
                     mem_strings.append(mem['memory'])
                 elif hasattr(mem, 'memory'):
                     mem_strings.append(mem.memory)
-                else:
-                    mem_strings.append(str(mem))
+                elif isinstance(mem, str):
+                    mem_strings.append(mem)
             return list(set(mem_strings))
         except Exception as e:
             return []
@@ -208,72 +241,123 @@ class KoalAgent:
             sender = data.event.sender
             open_id = sender.sender_id.open_id
             
-            # 记录活跃用户
-            self.active_users.add(open_id)
+            # Phase 1: SQLite 持久化记录活跃时间
+            self.update_user_activity(open_id, is_chat=True)
 
             if msg.message_type != "text":
                 self.send_feishu_message(open_id, "暂时只支持文本消息哦~")
                 return
 
             text = json.loads(msg.content)["text"]
-            print(f"\n💬 收到来自飞书的消息: {text}")
+            print(f"\n💬 收到飞书消息: {text}")
 
-            # 1. 存入记忆
+            # 1. 存入长期记忆
             self.m.add(text, user_id=open_id)
 
-            # 2. 提取画像
-            memories = self.fetch_user_memories(open_id)
-            memory_str = "\n".join([f"- {m}" for m in memories])
+            # 2. 提取画像 (根据当前对话内容检索 top-k 相关记忆)
+            memories = self.fetch_user_memories(open_id, query=text)
+            memory_str = "\n".join([f"- {m}" for m in memories]) if memories else "暂无相关记忆"
 
-            system_prompt = f"你是一个在飞书中运行的私人助理。\n[用户的长期记忆]：\n{memory_str}\n\n请自然地回答用户的问题，并结合上面提取的记忆。"
+            system_prompt = f"你是一个在飞书中运行的私人助理。\n[用户的长期记忆参考]：\n{memory_str}\n\n请自然地回答用户的问题，并结合上面提取的记忆。"
             
-            # 3. 交给大模型
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text}
-            ]
+            # 3. 融合短期对话历史缓存 (滑动窗口)
+            if open_id not in self.chat_history:
+                self.chat_history[open_id] = []
+                
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(self.chat_history[open_id])
+            messages.append({"role": "user", "content": text})
             
+            # 4. 交给大模型
             reply = self.call_llm_with_tools(messages)
             
-            # 4. 回复飞书
+            # 5. 回复飞书并更新短期记忆窗口
             self.send_feishu_message(open_id, reply)
-            print(f"🤖 已回复飞书: {reply}")
+            print(f"🤖 已回复: {reply}")
+            
+            self.chat_history[open_id].append({"role": "user", "content": text})
+            self.chat_history[open_id].append({"role": "assistant", "content": reply})
+            if len(self.chat_history[open_id]) > 10: # 保留最近 5 轮交互
+                self.chat_history[open_id] = self.chat_history[open_id][-10:]
 
         except Exception as e:
             print(f"❌ 处理飞书消息异常: {e}")
 
     # ================= 心跳机制 =================
-    def tick(self):
-        if not self.active_users:
-            return
-            
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n[{now}] 🫀 心跳触发，准备给 {len(self.active_users)} 个活跃用户发送关怀...")
+    def process_user_heartbeat(self, open_id, last_chat_time_str, last_heartbeat_time_str, now_dt):
+        try:
+            # 阈值 1: 聊天活跃期防打扰 (最近 5 分钟发过消息不触发心跳)
+            if last_chat_time_str:
+                last_chat = datetime.strptime(last_chat_time_str, "%Y-%m-%d %H:%M:%S")
+                if (now_dt - last_chat).total_seconds() < 5 * 60:
+                    print(f"  [静默拦截] 用户 {open_id} 最近5分钟处于活跃对话，不打扰。")
+                    return
 
-        for open_id in self.active_users:
-            memories = self.fetch_user_memories(open_id)
-            memory_str = "\n".join([f"- {m}" for m in memories])
+            # 阈值 2: 心跳冷却期防打扰 (两次心跳间隔必须大于 10 分钟)
+            if last_heartbeat_time_str:
+                last_hb = datetime.strptime(last_heartbeat_time_str, "%Y-%m-%d %H:%M:%S")
+                if (now_dt - last_hb).total_seconds() < 10 * 60:
+                    print(f"  [冷却拦截] 用户 {open_id} 距离上次心跳不足10分钟。")
+                    return
+            
+            print(f"  -> 正在给用户 {open_id} 计算并发起心跳关怀...")
+
+            # 心跳时使用通用画像检索
+            memories = self.fetch_user_memories(open_id, query="用户的个人特征、作息与核心偏好")
+            memory_str = "\n".join([f"- {m}" for m in memories]) if memories else "暂无画像"
 
             system_prompt = f"""你是一个飞书私人助理。
-[当前时间]：{now}
-[用户的长期记忆]：\n{memory_str}
+[当前时间]：{now_dt.strftime("%Y-%m-%d %H:%M:%S")}
+[用户的核心画像参考]：\n{memory_str}
 
-这是一次定期的主动心跳。你需要主动找用户聊天（可以是问候、或者是调用工具去获取他们可能感兴趣的新闻/天气并分享）。
-语气要自然得体。"""
+这是一次定期的主动心跳。你需要主动找用户聊天（可以是基于画像的简短问候，或者是调用工具去获取他们可能感兴趣的新闻/天气并分享）。
+请保持自然得体，绝不要重复你以前说过的话。请控制字数，不要像机器人在汇报工作。"""
             
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "（后台心跳唤醒：请主动对我说句话）"}
-            ]
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # 拼入短期历史让心跳显得更连贯
+            if open_id in self.chat_history:
+                messages.extend(self.chat_history[open_id][-4:]) 
+
+            messages.append({"role": "user", "content": "（内部触发指令：现在是你的自主思考时间，请主动开启一个话题并给我发消息）"})
             
             reply = self.call_llm_with_tools(messages)
+            
+            # 保存到聊天历史，确保心跳发的内容用户能继续顺着聊
+            if open_id not in self.chat_history:
+                self.chat_history[open_id] = []
+            self.chat_history[open_id].append({"role": "assistant", "content": reply})
+
             self.send_feishu_message(open_id, reply)
+            # 记录这次心跳时间
+            self.update_user_activity(open_id, is_chat=False)
+            
+        except Exception as e:
+            print(f"❌ 心跳处理失败 {open_id}: {e}")
+
+    def tick(self):
+        now_dt = datetime.now()
+        
+        # 阈值 0: 夜间免打扰 (23点到8点不发心跳)
+        if now_dt.hour >= 23 or now_dt.hour < 8:
+            print(f"[{now_dt.strftime('%H:%M:%S')}] 夜间免打扰开启，挂起所有心跳。")
+            return
+            
+        users = self.get_all_active_users()
+        if not users:
+            return
+            
+        print(f"\n[{now_dt.strftime('%Y-%m-%d %H:%M:%S')}] 🫀 调度器触发，开始并发检测 {len(users)} 个活跃用户是否需要心跳...")
+        
+        # Phase 1: 并发分发心跳任务
+        for open_id, last_chat_time, last_heartbeat_time in users:
+            self.executor.submit(self.process_user_heartbeat, open_id, last_chat_time, last_heartbeat_time, now_dt)
 
     def run(self):
-        # 启动心跳 (目前设定 120 秒一次，以免过于频繁发消息)
+        # 启动心跳 (目前设定 120 秒触发一次轮询检测，具体发不发由 process_user_heartbeat 里的阈值决定)
         self.scheduler.add_job(self.tick, 'interval', seconds=120)
         self.scheduler.start()
-        print("✅ 后台心跳调度器已启动 (间隔: 120秒)。")
+        print("✅ 后台心跳调度器已启动 (每120秒一轮检测)。")
 
         # 构造飞书长连接监听器
         event_handler = lark.EventDispatcherHandler.builder("", "") \
