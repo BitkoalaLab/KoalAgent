@@ -1,0 +1,7 @@
+mem0ai
+openai
+python-dotenv
+sentence-transformers
+apscheduler
+requests
+lark-oapi
