@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KoalAgent - Proactive AI Agent by BitKoala Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Glow -->
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+
+    <nav>
+        <div class="logo">🐨 KoalAgent</div>
+        <div class="nav-controls">
+            <button id="lang-toggle" class="glass-btn">EN / 中文</button>
+            <a href="https://github.com/BitkoalaLab/KoalAgent" target="_blank" class="glass-btn github-btn">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                GitHub
+            </a>
+        </div>
+    </nav>
+
+    <main>
+        <header class="hero">
+            <div class="hero-badge" data-en="Built by BitKoala Lab" data-zh="由比特考拉实验室打造">由比特考拉实验室打造</div>
+            <h1 class="title">
+                The Proactive <span class="gradient-text">AI Agent</span><br>With a Beating Heart.
+            </h1>
+            <p class="subtitle" data-en="A native, open-source personal AI assistant with persistent memory, autonomous heartbeat, and zero-config Feishu (Lark) integration." data-zh="一个原生开源的个人专属 AI 智能体。拥有长久记忆、自主心跳机制，以及零配置的飞书双向通讯能力。">
+                一个原生开源的个人专属 AI 智能体。拥有长久记忆、自主心跳机制，以及零配置的飞书双向通讯能力。
+            </p>
+            <div class="cta-group">
+                <a href="https://github.com/BitkoalaLab/KoalAgent" target="_blank" class="primary-btn">
+                    <span data-en="View on GitHub" data-zh="在 GitHub 上查看">在 GitHub 上查看</span>
+                </a>
+                <a href="#features" class="secondary-btn">
+                    <span data-en="Explore Features" data-zh="探索特性">探索特性</span>
+                </a>
+            </div>
+        </header>
+
+        <section id="features" class="features">
+            <div class="feature-card glass-panel">
+                <div class="icon">🧠</div>
+                <h3 data-en="Persistent Memory" data-zh="原生长期记忆">原生长期记忆</h3>
+                <p data-en="Powered by Mem0 and BGE models. It remembers who you are, your preferences, and past conversations, subtly applying them to every interaction." data-zh="基于 Mem0 与 BGE 向量模型。它能精准提取你的身份画像与喜好，打破大模型单轮对话的遗忘曲线。">基于 Mem0 与 BGE 向量模型。它能精准提取你的身份画像与喜好，打破大模型单轮对话的遗忘曲线。</p>
+            </div>
+            
+            <div class="feature-card glass-panel">
+                <div class="icon">🫀</div>
+                <h3 data-en="Autonomous Heartbeat" data-zh="自主心跳引擎">自主心跳引擎</h3>
+                <p data-en="A background daemon that wakes the agent up periodically to proactively check in on you, share news, or initiate tasks without being prompted." data-zh="基于调度器的后台守护进程。即使你不发消息，它也会根据设定的时间间隔主动苏醒，向你发送关怀与资讯。">基于调度器的后台守护进程。即使你不发消息，它也会根据设定的时间间隔主动苏醒，向你发送关怀与资讯。</p>
+            </div>
+
+            <div class="feature-card glass-panel">
+                <div class="icon">🛠️</div>
+                <h3 data-en="Tool Calling" data-zh="实体抓手">实体抓手</h3>
+                <p data-en="Native support for executing Python functions. It decides when to fetch live weather, scrape Hacker News, or use other tools to get real-world data." data-zh="原生支持函数调用。遇到自己不懂的事情，它能自主调用本地 Python 工具获取物理世界的真实数据。">原生支持函数调用。遇到自己不懂的事情，它能自主调用本地 Python 工具获取物理世界的真实数据。</p>
+            </div>
+
+            <div class="feature-card glass-panel">
+                <div class="icon">💬</div>
+                <h3 data-en="Feishu Integration" data-zh="飞书无缝接入">飞书无缝接入</h3>
+                <p data-en="Zero-config two-way communication via Feishu Open API WebSocket. No public IPs or webhooks required—just run it locally." data-zh="深度接入飞书长连接 WebSocket 模式。无需公网服务器或繁琐的 Webhook 配置，本地运行即可在手机端畅聊。">深度接入飞书长连接 WebSocket 模式。无需公网服务器或繁琐的 Webhook 配置，本地运行即可在手机端畅聊。</p>
+            </div>
+        </section>
+
+        <section class="roadmap">
+            <h2 data-en="Roadmap to V2.0" data-zh="演进路线图">演进路线图</h2>
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div class="marker"></div>
+                    <div class="content glass-panel">
+                        <h4 data-en="Phase 0: Memory & Heartbeat" data-zh="Phase 0: 记忆与心跳">Phase 0: 记忆与心跳</h4>
+                        <p data-en="MVP with Mem0, BAAI/bge-small-zh, and APScheduler." data-zh="基于 Mem0 与 APScheduler 的基础心智搭建。">基于 Mem0 与 APScheduler 的基础心智搭建。</p>
+                    </div>
+                </div>
+                <div class="timeline-item completed">
+                    <div class="marker"></div>
+                    <div class="content glass-panel">
+                        <h4 data-en="Phase 0.5: Tool Calling & Feishu" data-zh="Phase 0.5: 工具调用与飞书">Phase 0.5: 工具调用与飞书</h4>
+                        <p data-en="Real-world data fetching and zero-config mobile IM integration." data-zh="真实数据抓取能力与零配置手机端 IM 接入。">真实数据抓取能力与零配置手机端 IM 接入。</p>
+                    </div>
+                </div>
+                <div class="timeline-item pending">
+                    <div class="marker"></div>
+                    <div class="content glass-panel">
+                        <h4 data-en="Phase 1: Code Interpreter" data-zh="Phase 1: 代码解释器">Phase 1: 代码解释器</h4>
+                        <p data-en="Allowing the agent to write and execute its own Python scripts to solve complex, unknown tasks." data-zh="赋予 Agent 在沙盒中自己写 Python 脚本并执行的终极自由度。">赋予 Agent 在沙盒中自己写 Python 脚本并执行的终极自由度。</p>
+                    </div>
+                </div>
+                <div class="timeline-item pending">
+                    <div class="marker"></div>
+                    <div class="content glass-panel">
+                        <h4 data-en="Phase 2: Computer Use" data-zh="Phase 2: 系统控制">Phase 2: 系统控制</h4>
+                        <p data-en="Playwright integration for web automation and GUI control." data-zh="引入 Playwright 实现网页自动化控制与多模态分析。">引入 Playwright 实现网页自动化控制与多模态分析。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p data-en="Created with 💚 by BitKoala Lab" data-zh="由比特考拉实验室倾力打造 💚">由比特考拉实验室倾力打造 💚</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
